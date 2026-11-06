@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#070a13">
+  <meta name="description" content="Voidwake — a neon arcade survival game. Pilot, collect, and outlast the void.">
+  <title>Voidwake — Into the Void</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23070a13'/%3E%3Cpath d='M16 5l2.6 8.4L27 16l-8.4 2.6L16 27l-2.6-8.4L5 16l8.4-2.6z' fill='%236cf7e2'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game-shell">
+    <canvas id="game" aria-label="Voidwake game field"></canvas>
+    <div class="vignette" aria-hidden="true"></div>
+    <div class="top-shade" aria-hidden="true"></div>
+    <div class="bottom-shade" aria-hidden="true"></div>
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Voidwake home"><span class="brand-mark">✳</span> VOID<span class="brand-light">/WAKE</span></a>
+      <div class="run-tag"><span class="live-dot"></span><span id="run-label">STANDBY</span></div>
+      <button class="icon-button muted" id="sound-button" aria-label="Enable sound" title="Toggle sound"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M2 6h2.6L8.5 3v10L4.6 10H2z" fill="currentColor"/><g class="sound-waves" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"><path d="M10.5 5.6a3.2 3.2 0 010 4.8"/><path d="M12.4 3.8a5.6 5.6 0 010 8.4"/></g><path class="sound-slash" d="M2.5 13.5l11-11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></button>
+    </header>
+    <section class="hud" id="hud" aria-live="polite">
+      <div class="hud-block"><span class="eyebrow">SECTOR</span><strong id="wave-value">01</strong></div>
+      <div class="hud-block score-block"><span class="eyebrow">SCORE</span><strong id="score-value">000000</strong></div>
+      <div class="hud-block"><span class="eyebrow">ELAPSED</span><strong id="time-value">00:00</strong></div>
+      <div class="health-wrap"><div class="health-caption"><span class="eyebrow">HULL INTEGRITY</span><span id="hull-value">100%</span></div><div class="health-track"><span id="health-fill"></span></div></div>
+      <button class="pause-button" id="pause-button" aria-label="Pause game"><svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><rect x="2" y="1.5" width="2.5" height="9" rx="1" fill="currentColor"/><rect x="7.5" y="1.5" width="2.5" height="9" rx="1" fill="currentColor"/></svg></button>
+    </section>
+    <div class="xp-wrap" id="xp-wrap"><span class="eyebrow">NOVA CHARGE</span><div class="xp-track"><span id="xp-fill"></span></div><span class="xp-level" id="level-value">LV 01</span></div>
+    <div class="toast" id="toast" aria-live="polite"></div>
+
+    <section class="screen welcome-screen active" id="welcome-screen">
+      <div class="welcome-copy">
+        <p class="kicker"><span class="kicker-line"></span> SIGNAL FOUND · 2189</p>
+        <h1>THE VOID<br><span>IS ALIVE.</span></h1>
+        <p class="intro">You are the last light in a dead sector.<br>Keep moving. Keep the signal alive.</p>
+        <button class="primary-button" id="start-button"><span>ENTER THE DRIFT</span><span class="button-arrow">↗</span></button>
+        <div class="best-score">PERSONAL BEST <strong id="best-title">000000</strong></div>
+      </div>
+      <div class="ship-annotation annotation-one"><span>01 / PILOT</span><i></i>YOU ARE HERE</div>
+      <div class="ship-annotation annotation-two"><span>02 / HOSTILES</span><i></i>THEY ARE EVERYWHERE</div>
+      <div class="welcome-footer"><span>AN ARCADE SURVIVAL EXPERIENCE</span><span>WASD / ARROWS TO MOVE · MOUSE TO AIM & FIRE</span></div>
+    </section>
+
+    <section class="screen overlay-screen" id="pause-screen">
+      <div class="modal-card compact-card"><p class="kicker">SIGNAL SUSPENDED</p><h2>TAKE A<br><span>BREATHER.</span></h2><p class="modal-copy">The void can wait. Your run is safe.</p><button class="primary-button" id="resume-button"><span>RESUME RUN</span><span class="button-arrow">↗</span></button><button class="text-button" id="pause-restart">ABANDON RUN & RESTART</button></div>
+    </section>
+
+    <section class="screen overlay-screen" id="upgrade-screen">
+      <div class="upgrade-panel"><p class="kicker">NOVA CHARGE COMPLETE</p><h2>CHOOSE YOUR<br><span>EVOLUTION.</span></h2><p class="modal-copy">A moment in the quiet. Pick one upgrade.</p><div class="upgrade-grid" id="upgrade-grid"></div></div>
+    </section>
+
+    <section class="screen overlay-screen" id="end-screen">
+      <div class="modal-card compact-card"><p class="kicker" id="end-kicker">SIGNAL LOST</p><h2 id="end-title">THE VOID<br><span>WINS.</span></h2><p class="modal-copy" id="end-copy">Every light fades. Yours burned bright.</p><div class="result-stats"><div><span class="eyebrow">FINAL SCORE</span><strong id="final-score">000000</strong></div><div><span class="eyebrow">SURVIVED</span><strong id="final-time">00:00</strong></div><div><span class="eyebrow">HOSTILES</span><strong id="final-kills">00</strong></div></div><button class="primary-button" id="restart-button"><span>FLY AGAIN</span><span class="button-arrow">↗</span></button><div class="best-score">PERSONAL BEST <strong id="best-end">000000</strong></div></div>
+    </section>
+
+    <div class="controls-hint" id="controls-hint"><span>WASD</span> MOVE <b>·</b> <span>CLICK</span> FIRE <b>·</b> <span>SPACE</span> DASH <b>·</b> <span>ESC</span> PAUSE</div>
+    <div class="touch-controls" aria-label="Touch controls">
+      <div class="dpad"><button data-key="ArrowUp" class="pad up" aria-label="Move up">▲</button><button data-key="ArrowLeft" class="pad left" aria-label="Move left">◀</button><button data-key="ArrowDown" class="pad down" aria-label="Move down">▼</button><button data-key="ArrowRight" class="pad right" aria-label="Move right">▶</button></div>
+      <button class="dash-touch" id="dash-touch">DASH<span>↗</span></button>
+      <button class="fire-touch" id="fire-touch">FIRE<span>◎</span></button>
+    </div>
+  </main>
+  <script src="game.js"></script>
+</body>
+</html>
