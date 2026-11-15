@@ -160,7 +160,14 @@
     </div>
   </div>
 
-  <div id="loading" class="hidden"><div class="rune"></div><span>Tejiendo la Niebla…</span></div>
+  <div id="pauseScreen" class="hidden" role="dialog" aria-modal="true" aria-labelledby="pauseTitle">
+    <div class="pause-panel">
+      <span class="pause-kicker">WILD FRONTIER</span>
+      <h2 id="pauseTitle">Expedición en pausa</h2>
+      <p>La Frontera espera tu regreso.</p>
+      <button class="btn btn-primary" id="btnResume">Continuar</button>
+    </div>
+  </div>
 </div>
 
 <div id="rotateGate" class="hidden">

@@ -35,7 +35,8 @@ const ui = {
   detailSheet: document.getElementById('detailSheet'),
   toastStack: document.getElementById('toastStack'),
   titleScreen: document.getElementById('titleScreen'),
-  loading: document.getElementById('loading'),
+  pauseScreen: document.getElementById('pauseScreen'),
+  btnResume: document.getElementById('btnResume'),
   rotateGate: document.getElementById('rotateGate'),
   btnNewGame: document.getElementById('btnNewGame'),
   btnContinue: document.getElementById('btnContinue'),
@@ -275,6 +276,9 @@ function applyClassChoice(primaryId, subclassId = null) {
   }
   p.className = p.subclassId === null ? klass.primary : `${klass.primary} • ${klass.sub}`;
   p.skills = p.subclassId === null ? [klass.active[0]] : [...klass.active];
+  p.skillCooldowns ||= [];
+  p.skillCooldowns.length = p.skills.length;
+  p.skillCooldownMax ||= [];
   p.classId = state.selectedClassId;
   p.classDisplay = klass;
   updateSkillButtons();
@@ -307,6 +311,8 @@ function createPlayer(classId = 0) {
     className: 'Aldeano',
     title: 'Superviviente',
     skills: [],
+    skillCooldowns: [],
+    skillCooldownMax: [],
     shelterLevel: 0,
     attackCooldown: 0,
     dodgeCooldown: 0,
@@ -523,16 +529,20 @@ function syncHud() {
 function updateSkillButtons() {
   const skills = state.player?.skills || [];
   ui.skillButtons.forEach((button, index) => {
-    const skill = skills[index] || '—';
+    const skill = skills[index] || '';
     const slot = button.querySelector('small');
     const glyph = button.querySelector('.glyph');
-    if (skill && skill !== '—') {
-      slot.textContent = skill.length > 7 ? skill.slice(0, 7) : skill;
-      glyph.textContent = index % 2 === 0 ? '✦' : '✧';
-    } else {
-      slot.textContent = '';
-      glyph.textContent = '✦';
-    }
+    const cooldown = state.player?.skillCooldowns?.[index] || 0;
+    const cooldownMax = state.player?.skillCooldownMax?.[index] || 1;
+    const cooldownFill = button.querySelector('.cd-fill');
+    const available = Boolean(skill);
+    slot.textContent = skill ? (skill.length > 7 ? skill.slice(0, 7) : skill) : '';
+    glyph.textContent = index % 2 === 0 ? '✦' : '✧';
+    button.disabled = !available || state.mode !== 'game' || state.pause;
+    button.title = skill ? `${skill} · ${index === 0 ? '12' : '18'} maná` : 'Habilidad no disponible';
+    button.setAttribute('aria-label', skill ? `Usar ${skill}, cuesta ${index === 0 ? 12 : 18} de maná` : 'Habilidad no disponible');
+    if (cooldownFill) cooldownFill.style.height = `${Math.min(100, (cooldown / cooldownMax) * 100)}%`;
+    button.classList.toggle('on-cooldown', cooldown > 0);
   });
 }
 
@@ -609,6 +619,11 @@ function loadGame() {
   state.player.y = state.map.camp.y + 30;
   ui.titleScreen.classList.add('hidden');
   ui.hud.classList.remove('hidden');
+  ui.joystick.classList.remove('hidden');
+  state.pause = false;
+  ui.pauseScreen.classList.add('hidden');
+  ui.btnPauseTop.textContent = 'Ⅱ';
+  ui.btnPauseTop.setAttribute('aria-label', 'Pausar');
   state.mode = 'game';
   updateSkillButtons();
   syncHud();
@@ -879,6 +894,85 @@ function campRecover() {
   syncHud();
 }
 
+function skillConfigFor(skill, slot) {
+  const name = skill.toLowerCase();
+  const configs = [
+    { cost: 12, cooldown: 5, damage: 2.2, radius: 140, heal: 0.1, shield: 0 },
+    { cost: 18, cooldown: 9, damage: 1.5, radius: 190, heal: 0, shield: 0.18 }
+  ];
+  const config = { ...configs[Math.min(slot, 1)] };
+  if (/escudo|baluarte|muro|coraza|santuario|aura|estandarte|intervención|intervencion/i.test(name)) {
+    config.damage = /aura|santuario|muro/i.test(name) ? 0.7 : 0.5;
+    config.heal = Math.max(config.heal, /sagrado|divina|purificación|purificacion|santuario/i.test(name) ? 0.2 : 0);
+    config.shield = Math.max(config.shield, /escudo|baluarte|muro|coraza|estandarte/i.test(name) ? 0.3 : 0.08);
+  }
+  if (/cura|sanación|sanacion|purificación|purificacion|sagrado|sagrada|clérigo|clerigo|divina/i.test(name)) {
+    config.heal = Math.max(config.heal, 0.24);
+  }
+  if (/trampa|veneno|explosivo|sísmico|sismico|nova|tormenta|convergente|sobrecarga/i.test(name)) {
+    config.damage *= 1.25;
+    config.radius += 35;
+  }
+  if (/carga|embestida|estocada|disparo|flecha|saeta|golpe|corte|pulso/i.test(name)) {
+    config.damage *= 1.15;
+  }
+  return config;
+}
+
+function activateSkill(slot) {
+  const p = state.player;
+  const skill = p?.skills?.[slot];
+  if (!p || state.mode !== 'game' || state.pause || !skill) return false;
+  p.skillCooldowns ||= [];
+  p.skillCooldownMax ||= [];
+  const config = skillConfigFor(skill, slot);
+  if ((p.skillCooldowns[slot] || 0) > 0) return false;
+  if (p.mana < config.cost) {
+    showToast(`Maná insuficiente para ${skill}.`);
+    return false;
+  }
+
+  p.mana -= config.cost;
+  p.skillCooldowns[slot] = config.cooldown;
+  p.skillCooldownMax[slot] = config.cooldown;
+  const enemies = state.enemies
+    .map((enemy) => ({ enemy, distance: dist(enemy, p) }))
+    .filter(({ distance }) => distance <= config.radius)
+    .sort((a, b) => a.distance - b.distance);
+  const target = enemies[0]?.enemy;
+  const healAmount = config.heal ? Math.max(1, Math.round(p.maxHp * config.heal)) : 0;
+  if (healAmount) p.hp = Math.min(p.maxHp, p.hp + healAmount);
+  if (config.shield) p.invulnerable = Math.max(p.invulnerable, 0.8 + config.shield * 2);
+
+  if (target && config.damage > 0) {
+    const damage = Math.round((p.attackDamage || 18) * config.damage);
+    if (config.radius > 150) {
+      for (const { enemy, distance } of enemies) {
+        if (distance <= config.radius) {
+          enemy.hp -= Math.max(1, Math.round(damage * (enemy === target ? 1 : 0.65)));
+          createBurst(enemy.x, enemy.y, '#c6a9ff');
+        }
+      }
+    } else {
+      target.hp -= damage;
+      createBurst(target.x, target.y, '#c6a9ff');
+    }
+  } else if (target && config.heal) {
+    target.hp -= Math.max(1, Math.round((p.attackDamage || 18) * config.damage));
+    createBurst(target.x, target.y, '#c6a9ff');
+  }
+
+  const effects = [];
+  if (config.damage > 0 && target) effects.push(`impacta ${target.name}`);
+  if (healAmount) effects.push(`recuperas ${healAmount} de salud`);
+  if (config.shield) effects.push('ganas una breve protección');
+  logMessage(`${skill}: ${effects.length ? effects.join(' y ') : 'energía canalizada'}.`, 'warn');
+  showToast(`${skill} · −${config.cost} maná`);
+  syncHud();
+  updateSkillButtons();
+  return true;
+}
+
 function performAttack() {
   const p = state.player;
   if (!p || p.attackCooldown > 0) return;
@@ -941,6 +1035,8 @@ function updatePlayer(dt) {
   p.attackCooldown = Math.max(0, p.attackCooldown - dt);
   p.dodgeCooldown = Math.max(0, p.dodgeCooldown - dt);
   p.invulnerable = Math.max(0, p.invulnerable - dt);
+  p.mana = Math.min(p.maxMana, p.mana + dt * 1.2);
+  p.skillCooldowns = (p.skillCooldowns || []).map((cooldown) => Math.max(0, cooldown - dt));
   p.satiety = Math.max(0, p.satiety - dt * 0.9);
 
   if (p.satiety <= 0) {
@@ -972,6 +1068,7 @@ function updatePlayer(dt) {
   ui.touchHint.classList.toggle('hidden', state.input.active);
   showCampAction();
   syncHud();
+  updateSkillButtons();
 }
 
 function updateProjectiles(dt) {
@@ -1311,10 +1408,27 @@ function startNewGame(classId = 0) {
   state.mode = 'game';
   ui.titleScreen.classList.add('hidden');
   ui.hud.classList.remove('hidden');
-  ui.loading.classList.add('hidden');
+  ui.joystick.classList.remove('hidden');
+  state.pause = false;
+  ui.pauseScreen.classList.add('hidden');
+  ui.btnPauseTop.textContent = 'Ⅱ';
+  ui.btnPauseTop.setAttribute('aria-label', 'Pausar');
   updateSkillButtons();
   syncHud();
   saveGame();
+}
+
+function setPaused(paused) {
+  if (state.mode !== 'game') return;
+  state.pause = paused;
+  state.input.x = 0;
+  state.input.y = 0;
+  state.input.active = false;
+  ui.stickKnob.style.transform = 'translate(0px, 0px)';
+  ui.pauseScreen.classList.toggle('hidden', !paused);
+  ui.btnPauseTop.textContent = paused ? '▶' : 'Ⅱ';
+  ui.btnPauseTop.setAttribute('aria-label', paused ? 'Reanudar' : 'Pausar');
+  updateSkillButtons();
 }
 
 function bindControls() {
@@ -1367,13 +1481,32 @@ function bindControls() {
   });
   ui.joystick.addEventListener('lostpointercapture', resetStick);
 
-  ui.btnAttack.addEventListener('pointerdown', performAttack);
-  ui.btnDodge.addEventListener('pointerdown', dodge);
+  ui.btnAttack.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    if (state.mode === 'game' && !state.pause) performAttack();
+  });
+  ui.skillButtons.forEach((button) => {
+    button.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      activateSkill(Number(button.dataset.slot));
+    });
+  });
+  ui.btnDodge.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    if (state.mode === 'game' && !state.pause) dodge();
+  });
   ui.btnInteract.addEventListener('pointerdown', gatherResource);
   ui.btnCamp.addEventListener('click', campRecover);
   ui.btnPauseTop.addEventListener('click', () => {
-    state.pause = !state.pause;
-    ui.loading.classList.toggle('hidden', !state.pause);
+    resetStick();
+    setPaused(!state.pause);
+  });
+  ui.btnResume.addEventListener('click', () => setPaused(false));
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && state.mode === 'game' && !state.pause) {
+      resetStick();
+      setPaused(true);
+    }
   });
   ui.btnRotateSkip.addEventListener('click', () => {
     state.rotateDismissedOrientation = window.innerHeight > window.innerWidth ? 'portrait' : 'landscape';
@@ -1381,6 +1514,7 @@ function bindControls() {
   });
 
   document.addEventListener('keydown', (event) => {
+    if (state.mode !== 'game' || state.pause) return;
     const key = event.key.toLowerCase();
     if (key === 'w' || key === 'arrowup') state.input.y = -1;
     if (key === 's' || key === 'arrowdown') state.input.y = 1;

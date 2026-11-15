@@ -112,7 +112,7 @@ button { font: inherit; }
   position:absolute; inset:0; border-radius:50%; background: radial-gradient(circle at center, rgba(201,210,218,0.08), rgba(18,25,24,0.42) 58%, rgba(9,12,12,0.7)); border:1px solid rgba(255,255,255,0.11); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04), 0 18px 28px rgba(0,0,0,0.2);
 }
 .stick-knob {
-  position:absolute; width:52px; height:52px; left:49px; top:49px; border-radius:50%; background: radial-gradient(circle at 35% 30%, rgba(228,239,255,0.75), rgba(91,110,136,0.9)); border:1px solid rgba(255,255,255,0.2); box-shadow:0 10px 16px rgba(0,0,0,0.25); transform:translate(-50%,-50%);
+  position:absolute; width:52px; height:52px; left:49px; top:49px; border-radius:50%; background: radial-gradient(circle at 35% 30%, rgba(228,239,255,0.75), rgba(91,110,136,0.9)); border:1px solid rgba(255,255,255,0.2); box-shadow:0 10px 16px rgba(0,0,0,0.25); transform:translate(0,0);
 }
 .action-cluster {
   position:absolute; right:18px; bottom:20px; display:flex; align-items:flex-end; gap:12px; pointer-events:auto;
@@ -197,11 +197,19 @@ button { font: inherit; }
 .title-foot { margin-top:22px; display:flex; flex-direction:column; gap:8px; font-size:0.72rem; letter-spacing:0.08em; color:rgba(242,239,231,0.7); }
 .title-corner { position:absolute; top:18px; right:18px; z-index:2; }
 .audio-toggle { width:38px; height:38px; border-radius:50%; background:rgba(10, 16, 17, 0.46); border:1px solid rgba(255,255,255,0.12); color:#f8f5ec; }
-#loading {
-  position:absolute; inset:0; background: rgba(8,11,10,0.7); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; z-index:20; font-size:0.9rem; letter-spacing:0.12em; color:#edf0ee;
+#pauseScreen {
+  position:absolute; inset:0; z-index:20; display:grid; place-items:center; padding:calc(env(safe-area-inset-top) + 20px) calc(env(safe-area-inset-right) + 20px) calc(env(safe-area-inset-bottom) + 20px) calc(env(safe-area-inset-left) + 20px); background:rgba(5,8,7,0.76); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
 }
-.rune { width:54px; height:54px; border-radius:50%; border:2px solid rgba(255,255,255,0.18); border-top-color:var(--gold); animation: spin 1.2s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
+.pause-panel {
+  width:min(92vw, 420px); padding:clamp(24px, 5vw, 38px); border-radius:26px; border:1px solid rgba(255,255,255,0.16); background:linear-gradient(180deg, rgba(33,43,38,0.98), rgba(11,15,14,0.98)); box-shadow:0 28px 70px rgba(0,0,0,0.48); text-align:center; pointer-events:auto;
+}
+.pause-kicker { color:var(--gold); font-size:.65rem; letter-spacing:.28em; }
+.pause-panel h2 { margin:12px 0 8px; font-size:clamp(1.35rem, 4vw, 1.8rem); }
+.pause-panel p { margin:0 0 24px; color:rgba(235,240,235,.78); font-size:.92rem; }
+.pause-panel .btn { min-width:190px; min-height:48px; }
+@media (max-width: 680px) {
+  .pause-panel { width:min(88vw, 380px); }
+}
 #rotateGate {
   position:absolute; inset:0; background: rgba(5,8,8,0.8); display:grid; place-items:center; z-index:30;
 }
